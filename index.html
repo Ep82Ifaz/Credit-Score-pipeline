@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Credit Score Checker</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1c2430; --muted: #5d6877; --line: #e2e6ec;
+    --accent: #2457c5; --poor: #b3303f; --poor-bg: #fbe9eb;
+    --std: #8a5a00; --std-bg: #fdf1d8; --good: #1f7a4a; --good-bg: #e2f4ea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161c; --card: #1b212a; --text: #e8ecf1; --muted: #9aa5b4; --line: #2b3441;
+      --accent: #7aa2f7; --poor: #ff8f9b; --poor-bg: #3a1d22;
+      --std: #f2c35c; --std-bg: #3a2e12; --good: #6fd49b; --good-bg: #16301f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 24px 16px 56px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--card);
+         color: var(--text); cursor: pointer; font: inherit; }
+  .tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .panel[hidden] { display: none; }
+  label { display: block; font-weight: 600; margin-bottom: 6px; }
+  input[type=text], input[type=file] { width: 100%; padding: 10px; border: 1px solid var(--line);
+         border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
+  button.go { margin-top: 12px; padding: 10px 18px; border: 0; border-radius: 8px; background: var(--accent);
+              color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+  button.go:disabled { opacity: .5; cursor: wait; }
+  button.link { background: none; border: 0; color: var(--accent); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
+  .hint { color: var(--muted); font-size: .9rem; margin-top: 8px; }
+  .error { color: var(--poor); background: var(--poor-bg); padding: 10px 12px; border-radius: 8px; margin-top: 12px; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-weight: 700; font-size: .85rem; }
+  .Poor { color: var(--poor); background: var(--poor-bg); }
+  .Standard { color: var(--std); background: var(--std-bg); }
+  .Good { color: var(--good); background: var(--good-bg); }
+  .big { font-size: 2rem; font-weight: 800; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 4px 0 16px; }
+  .stat { border-radius: 10px; padding: 12px 14px; }
+  .stat .n { font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
+  .stat .l { font-size: .85rem; }
+  .probs { display: grid; gap: 8px; margin-top: 12px; }
+  .prow { display: grid; grid-template-columns: 80px 1fr 52px; gap: 10px; align-items: center; font-size: .9rem; }
+  .bar { height: 10px; background: var(--line); border-radius: 6px; overflow: hidden; }
+  .bar i { display: block; height: 100%; }
+  .bar i.Poor { background: var(--poor); } .bar i.Standard { background: #d99a00; } .bar i.Good { background: var(--good); }
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; }
+  .tablewrap { overflow-x: auto; }
+  .row { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 10px; }
+  .status { font-size: .85rem; color: var(--muted); }
+  @media (max-width: 560px) { .stats { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Credit Score Checker</h1>
+  <p class="sub">Classifies customers as <b>Poor</b>, <b>Standard</b> or <b>Good</b> using the trained model.</p>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="t-upload" aria-selected="true">Upload CSV</button>
+    <button class="tab" role="tab" id="t-lookup" aria-selected="false">Look up a customer</button>
+  </div>
+
+  <!-- UPLOAD -->
+  <section class="card panel" id="p-upload">
+    <label for="file">Customer data (CSV, same columns as test.csv)</label>
+    <input type="file" id="file" accept=".csv,text/csv">
+    <button class="go" id="run">Get credit scores</button>
+    <div class="hint">Results are one bracket per customer, based on all of that customer's months in the file.</div>
+    <div id="up-error"></div>
+    <div id="up-out" hidden>
+      <hr style="border:0;border-top:1px solid var(--line);margin:20px 0">
+      <div class="stats" id="stats"></div>
+      <div class="row">
+        <input type="text" id="filter" placeholder="Filter by customer ID" style="max-width:260px">
+        <span class="status" id="count"></span>
+        <button class="link" id="dl">Download all results (CSV)</button>
+      </div>
+      <div class="tablewrap">
+        <table><thead><tr><th>Customer</th><th>Score</th><th>Poor</th><th>Standard</th><th>Good</th><th>Months</th></tr></thead>
+        <tbody id="tbody"></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- LOOKUP -->
+  <section class="card panel" id="p-lookup" hidden>
+    <label for="cid">Customer ID</label>
+    <input type="text" id="cid" placeholder="e.g. CUS_0xd40" autocomplete="off">
+    <button class="go" id="find">Look up</button>
+    <div class="hint">Searches the demo data loaded on the server. Try <button class="link" id="ex">CUS_0xd40</button>.</div>
+    <div id="lk-error"></div>
+    <div id="lk-out" hidden>
+      <hr style="border:0;border-top:1px solid var(--line);margin:20px 0">
+      <div class="row" style="justify-content:flex-start">
+        <span class="big" id="lk-score"></span><span class="status" id="lk-meta"></span>
+      </div>
+      <div class="probs" id="lk-probs"></div>
+      <h3 style="margin:22px 0 8px;font-size:1rem">Month by month</h3>
+      <div class="tablewrap">
+        <table><thead><tr><th>Month</th><th>Score</th><th>Poor</th><th>Standard</th><th>Good</th></tr></thead>
+        <tbody id="lk-months"></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <p class="status" id="api-status">Connecting to the API…</p>
+</div>
+
+<script>
+  // Same origin when served by the API. If you open this file directly, it talks to localhost:8000.
+  const API = location.protocol.startsWith("http") ? "" : "http://localhost:8000";
+  const CLASSES = ["Poor", "Standard", "Good"];
+  const $ = id => document.getElementById(id);
+  const pct = v => (v * 100).toFixed(1) + "%";
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const badge = c => `<span class="badge ${c}">${c}</span>`;
+  let results = [];
+
+  // tabs
+  function show(tab) {
+    for (const t of ["upload", "lookup"]) {
+      $("t-" + t).setAttribute("aria-selected", t === tab);
+      $("p-" + t).hidden = t !== tab;
+    }
+  }
+  $("t-upload").onclick = () => show("upload");
+  $("t-lookup").onclick = () => show("lookup");
+
+  async function api(path, opts) {
+    const res = await fetch(API + path, opts);
+    let body = null;
+    try { body = await res.json(); } catch (_) {}
+    if (!res.ok) throw new Error(body && body.detail ? body.detail : "Request failed (" + res.status + ")");
+    return body;
+  }
+
+  // health
+  api("/api/health").then(h => {
+    $("api-status").textContent = `API connected · model: ${h.model} · ${h.demo_customers.toLocaleString()} demo customers`;
+  }).catch(() => {
+    $("api-status").textContent = "Cannot reach the API. Start it with: uvicorn app:app --port 8000";
+  });
+
+  // upload
+  function renderTable() {
+    const q = $("filter").value.trim().toLowerCase();
+    const rows = results.filter(r => r.Customer_ID.toLowerCase().includes(q));
+    $("count").textContent = `Showing ${Math.min(rows.length, 200).toLocaleString()} of ${rows.length.toLocaleString()}`;
+    $("tbody").innerHTML = rows.slice(0, 200).map(r => `<tr>
+      <td>${esc(r.Customer_ID)}</td><td>${badge(r.Credit_Score)}</td>
+      <td>${pct(r.Prob_Poor)}</td><td>${pct(r.Prob_Standard)}</td><td>${pct(r.Prob_Good)}</td><td>${r.Months}</td></tr>`).join("");
+  }
+  $("filter").oninput = renderTable;
+
+  $("run").onclick = async () => {
+    const f = $("file").files[0];
+    $("up-error").innerHTML = "";
+    if (!f) { $("up-error").innerHTML = '<div class="error">Choose a CSV file first.</div>'; return; }
+    const btn = $("run"); btn.disabled = true; btn.textContent = "Scoring…";
+    try {
+      const fd = new FormData(); fd.append("file", f);
+      const data = await api("/api/predict", { method: "POST", body: fd });
+      results = data.results;
+      const tot = data.customers;
+      $("stats").innerHTML = CLASSES.map(c => `<div class="stat ${c}">
+        <div class="n">${data.summary[c].toLocaleString()}</div>
+        <div class="l">${c} · ${tot ? (100 * data.summary[c] / tot).toFixed(1) : 0}% of ${tot.toLocaleString()} customers</div></div>`).join("");
+      $("filter").value = ""; renderTable();
+      $("up-out").hidden = false;
+    } catch (e) {
+      $("up-out").hidden = true;
+      $("up-error").innerHTML = `<div class="error">${esc(e.message)}</div>`;
+    } finally { btn.disabled = false; btn.textContent = "Get credit scores"; }
+  };
+
+  $("dl").onclick = () => {
+    const head = "Customer_ID,Credit_Score,Prob_Poor,Prob_Standard,Prob_Good,Months";
+    const lines = results.map(r => [r.Customer_ID, r.Credit_Score, r.Prob_Poor, r.Prob_Standard, r.Prob_Good, r.Months].join(","));
+    const url = URL.createObjectURL(new Blob([head + "\n" + lines.join("\n")], { type: "text/csv" }));
+    const a = Object.assign(document.createElement("a"), { href: url, download: "credit_scores.csv" });
+    a.click(); URL.revokeObjectURL(url);
+  };
+
+  // lookup
+  const probBars = r => CLASSES.map(c => `<div class="prow"><span>${c}</span>
+      <div class="bar"><i class="${c}" style="width:${(r["Prob_" + c] * 100).toFixed(1)}%"></i></div>
+      <span>${pct(r["Prob_" + c])}</span></div>`).join("");
+
+  async function lookup() {
+    const id = $("cid").value.trim();
+    $("lk-error").innerHTML = "";
+    if (!id) return;
+    const btn = $("find"); btn.disabled = true;
+    try {
+      const d = await api("/api/customer/" + encodeURIComponent(id));
+      $("lk-score").innerHTML = badge(d.customer.Credit_Score).replace("badge", "badge big");
+      $("lk-meta").textContent = `${d.customer.Customer_ID} · based on ${d.customer.Months} months`;
+      $("lk-probs").innerHTML = probBars(d.customer);
+      $("lk-months").innerHTML = d.months.map(m => `<tr><td>${esc(m.Month)}</td><td>${badge(m.Credit_Score)}</td>
+        <td>${pct(m.Prob_Poor)}</td><td>${pct(m.Prob_Standard)}</td><td>${pct(m.Prob_Good)}</td></tr>`).join("");
+      $("lk-out").hidden = false;
+    } catch (e) {
+      $("lk-out").hidden = true;
+      $("lk-error").innerHTML = `<div class="error">${esc(e.message)}</div>`;
+    } finally { btn.disabled = false; }
+  }
+  $("find").onclick = lookup;
+  $("cid").onkeydown = e => { if (e.key === "Enter") lookup(); };
+  $("ex").onclick = () => { $("cid").value = "CUS_0xd40"; lookup(); };
+</script>
+</body>
+</html>
