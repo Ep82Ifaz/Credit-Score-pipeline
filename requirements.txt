@@ -1,6 +1,0 @@
-fastapi
-uvicorn[standard]
-pydantic>=2
-pandas
-numpy
-scikit-learn==1.9.1
