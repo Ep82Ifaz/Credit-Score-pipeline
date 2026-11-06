@@ -1,0 +1,17 @@
+# Twitter Sentiment project (notebook + Flask API)
+# Install with:  pip install -r requirements.txt
+
+# --- Flask API (app.py) ---
+flask>=3.0
+numpy>=1.26
+scikit-learn>=1.4
+nltk>=3.9
+
+# --- Notebook (training, charts, word clouds) ---
+pandas>=2.1
+scipy>=1.11
+matplotlib>=3.8
+wordcloud>=1.9
+imbalanced-learn>=0.12
+jupyter>=1.0
+openpyxl>=3.1
