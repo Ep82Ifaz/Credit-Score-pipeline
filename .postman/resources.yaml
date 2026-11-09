@@ -1,0 +1,7 @@
+# Use this workspace to collaborate
+workspace:
+  id: 7cb28fa8-0c18-470d-81a9-1459c290a319
+
+localResources:
+  collections:
+    - ../Twitter_Sentiment_API.postman_collection.json
